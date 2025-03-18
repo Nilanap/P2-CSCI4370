@@ -7,6 +7,7 @@ package uga.menik.cs4370.controllers;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +21,6 @@ import org.springframework.web.servlet.ModelAndView;
 import uga.menik.cs4370.models.FollowableUser;
 import uga.menik.cs4370.services.PeopleService;
 import uga.menik.cs4370.services.UserService;
-import uga.menik.cs4370.utility.Utility;
 
 /**
  * Handles /people URL and its sub URL paths.
@@ -29,9 +29,17 @@ import uga.menik.cs4370.utility.Utility;
 @RequestMapping("/people")
 public class PeopleController {
 
+    private final UserService userService;
+    private final PeopleService peopleService;
+
     // Inject UserService and PeopleService instances.
     // See LoginController.java to see how to do this.
     // Hint: Add a constructor with @Autowired annotation.
+    @Autowired
+    public PeopleController(UserService userService, PeopleService peopleService) {
+        this.userService = userService;
+        this.peopleService = peopleService;
+    }
 
     /**
      * Serves the /people web page.
@@ -45,18 +53,21 @@ public class PeopleController {
         // See notes on ModelAndView in BookmarksController.java.
         ModelAndView mv = new ModelAndView("people_page");
 
-        // Following line populates sample data.
-        // You should replace it with actual data from the database.
-        // Use the PeopleService instance to find followable users.
-        // Use UserService to access logged in userId to exclude.
-        List<FollowableUser> followableUsers = Utility.createSampleFollowableUserList();
-        mv.addObject("users", followableUsers);
-
-        // If an error occured, you can set the following property with the
-        // error message to show the error message to the user.
-        // An error message can be optionally specified with a url query parameter too.
-        String errorMessage = error;
-        mv.addObject("errorMessage", errorMessage);
+        List<FollowableUser> followableUsers;
+        try {
+            // Following line populates sample data.
+            // You should replace it with actual data from the database.
+            // Use the PeopleService instance to find followable users.
+            // Use UserService to access logged in userId to exclude.
+            followableUsers  = peopleService.getFollowableUsers(userService.getLoggedInUser().getUserId());
+            mv.addObject("users", followableUsers);
+        } catch (SQLException sqle) {
+            // If an error occured, you can set the following property with the
+            // error message to show the error message to the user.
+            // An error message can be optionally specified with a url query parameter too.
+            String errorMessage = error;
+            mv.addObject("errorMessage", errorMessage);
+        }
 
         // Enable the following line if you want to show no content message.
         // Do that if your content list is empty.
