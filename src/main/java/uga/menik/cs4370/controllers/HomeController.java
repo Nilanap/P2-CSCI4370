@@ -7,8 +7,19 @@ package uga.menik.cs4370.controllers;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.HashSet;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import javax.sql.DataSource;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,6 +28,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.ModelAndView;
 
 import uga.menik.cs4370.models.Post;
+import uga.menik.cs4370.models.User;
+import uga.menik.cs4370.services.UserService;
 import uga.menik.cs4370.utility.Utility;
 
 /**
@@ -25,6 +38,21 @@ import uga.menik.cs4370.utility.Utility;
 @Controller
 @RequestMapping
 public class HomeController {
+
+    /** A regular expression that matches a valid hashtag */
+    private final Pattern hashTagPattern = Pattern.compile("\\B#([\\w-]+)");
+
+    /** The connector to the database. */
+    private final DataSource dataSource;
+
+    /** For accessing the logged-in user. */
+    private final UserService userService;
+
+    @Autowired
+    public HomeController(DataSource dataSource, UserService userService) {
+        this.dataSource = dataSource;
+        this.userService = userService;
+    }
 
     /**
      * This is the specific function that handles the root URL itself.
@@ -67,12 +95,58 @@ public class HomeController {
     @PostMapping("/createpost")
     public String createPost(@RequestParam(name = "posttext") String postText) {
         System.out.println("User is creating post: " + postText);
+        final String createPostStatementString = "INSERT INTO post (userId, postDate, postText) VALUES (?, ?, ?)";
+        final String createHashtagStatementString = "INSERT INTO hashtag (hashTag, postId) VALUES (?, ?)";
 
-        // Redirect the user if the post creation is a success.
-        // return "redirect:/";
+        if (postText.isBlank()) {
+            final String blankErrorMessage = URLEncoder.encode("Cannot create blank posts.",
+                    StandardCharsets.UTF_8);
+            return "redirect:/?error=" + blankErrorMessage;
+        }
 
-        // Redirect the user with an error message if there was an error.
-        String message = URLEncoder.encode("Failed to create the post. Please try again.",
+        if (!userService.isAuthenticated()) {
+            final String message = URLEncoder.encode("Must be logged in to create posts. Please log in.",
+                    StandardCharsets.UTF_8);
+            return "redirect:/?error=" + message;
+        }
+
+        final User user = userService.getLoggedInUser();
+        try (final Connection connection = dataSource.getConnection()) {
+            final PreparedStatement createPostStatement = connection.prepareStatement(createPostStatementString, Statement.RETURN_GENERATED_KEYS);
+            createPostStatement.setString(1, user.getUserId());
+            createPostStatement.setDate(2, new Date(new java.util.Date().getTime()));
+            createPostStatement.setString(3, postText);
+            createPostStatement.execute(); // Throws on error
+
+            // Get the ID of the post we just made
+            final ResultSet addedRows = createPostStatement.getGeneratedKeys();
+            if (!addedRows.next()) {
+                // Exit try block
+                throw new Exception();
+            }
+
+            final int postId = addedRows.getInt(1);
+            final Matcher hashTagMatcher = hashTagPattern.matcher(postText);
+            final PreparedStatement createHashtagStatement = connection.prepareStatement(createHashtagStatementString);
+            final HashSet<String> addedHashTags = new HashSet<>();
+            createHashtagStatement.setInt(2, postId);
+            while (hashTagMatcher.find()) {
+                final String hashTagName = hashTagMatcher.group(1);
+                if (addedHashTags.add(hashTagName)) {
+                    createHashtagStatement.setString(1, hashTagName);
+                    createHashtagStatement.executeUpdate();
+                }
+            }
+
+            // Redirect the user if the post creation is a success.
+            return "redirect:/";
+
+        } catch (Exception e) {
+            System.out.println("Exception in /createpost: " + e.toString());
+            // Fall out of the try block to the error return.
+        }
+
+        final String message = URLEncoder.encode("Failed to create the post. Please try again.",
                 StandardCharsets.UTF_8);
         return "redirect:/?error=" + message;
     }
