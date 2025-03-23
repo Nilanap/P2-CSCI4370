@@ -7,6 +7,9 @@ package uga.menik.cs4370.controllers;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -17,6 +20,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.ModelAndView;
+
+import javax.sql.DataSource;
 
 import uga.menik.cs4370.models.FollowableUser;
 import uga.menik.cs4370.services.PeopleService;
@@ -31,14 +36,16 @@ public class PeopleController {
 
     private final UserService userService;
     private final PeopleService peopleService;
+    private final DataSource dataSource;
 
     // Inject UserService and PeopleService instances.
     // See LoginController.java to see how to do this.
     // Hint: Add a constructor with @Autowired annotation.
     @Autowired
-    public PeopleController(UserService userService, PeopleService peopleService) {
+    public PeopleController(UserService userService, PeopleService peopleService, DataSource dataSource) {
         this.userService = userService;
         this.peopleService = peopleService;
+        this.dataSource = dataSource;
     }
 
     /**
@@ -50,29 +57,23 @@ public class PeopleController {
      */
     @GetMapping
     public ModelAndView webpage(@RequestParam(name = "error", required = false) String error) {
-        // See notes on ModelAndView in BookmarksController.java.
         ModelAndView mv = new ModelAndView("people_page");
 
-        List<FollowableUser> followableUsers;
-        try {
-            // Following line populates sample data.
-            // You should replace it with actual data from the database.
-            // Use the PeopleService instance to find followable users.
-            // Use UserService to access logged in userId to exclude.
-            followableUsers  = peopleService.getFollowableUsers(userService.getLoggedInUser().getUserId());
-            mv.addObject("users", followableUsers);
-        } catch (SQLException sqle) {
-            // If an error occured, you can set the following property with the
-            // error message to show the error message to the user.
-            // An error message can be optionally specified with a url query parameter too.
-            String errorMessage = error;
-            mv.addObject("errorMessage", errorMessage);
+
+        String loggedInUserId = userService.getLoggedInUser() != null ? userService.getLoggedInUser().getUserId() : "-1";
+
+
+        List<FollowableUser> followableUsers = peopleService.getFollowableUsers(loggedInUserId);
+        mv.addObject("users", followableUsers);
+
+
+        mv.addObject("errorMessage", error);
+
+
+        if (followableUsers.isEmpty()) {
+            mv.addObject("isNoContent", true);
         }
 
-        // Enable the following line if you want to show no content message.
-        // Do that if your content list is empty.
-        // mv.addObject("isNoContent", true);
-        
         return mv;
     }
 
@@ -87,19 +88,27 @@ public class PeopleController {
      * The above URL assigns 1 to userId and false to isFollow.
      */
     @GetMapping("{userId}/follow/{isFollow}")
-    public String followUnfollowUser(@PathVariable("userId") String userId,
-            @PathVariable("isFollow") Boolean isFollow) {
+    public String followUnfollowUser(@PathVariable("userId") String userId, @PathVariable("isFollow") Boolean isFollow) {
         System.out.println("User is attempting to follow/unfollow a user:");
-        System.out.println("\tuserId: " + userId);
+        System.out.println("\tTarget userId: " + userId);
         System.out.println("\tisFollow: " + isFollow);
 
-        // Redirect the user if the comment adding is a success.
-        // return "redirect:/people";
+        try {
 
-        // Redirect the user with an error message if there was an error.
-        String message = URLEncoder.encode("Failed to (un)follow the user. Please try again.",
-                StandardCharsets.UTF_8);
-        return "redirect:/people?error=" + message;
+            String loggedInUserId = userService.getLoggedInUser().getUserId();
+            System.out.println("\tLogged-in userId: " + loggedInUserId);
+
+
+            userService.toggleFollowUser(loggedInUserId, userId);
+
+
+            return "redirect:/people";
+        } catch (Exception e) {
+            e.printStackTrace();
+
+            String message = URLEncoder.encode("Failed to (un)follow the user. Please try again.", StandardCharsets.UTF_8);
+            return "redirect:/people?error=" + message;
+        }
     }
 
 }

@@ -131,4 +131,37 @@ public class UserService {
         }
     }
 
+    public void toggleFollowUser(String followerId, String followeeId) throws SQLException {
+
+        String checkSql = "SELECT 1 FROM follow WHERE followerUserId = ? AND followeeUserId = ?";
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement checkStmt = conn.prepareStatement(checkSql)) {
+            checkStmt.setInt(1, Integer.parseInt(followerId));
+            checkStmt.setInt(2, Integer.parseInt(followeeId));
+
+            try (ResultSet rs = checkStmt.executeQuery()) {
+                if (!rs.next()) {
+
+                    String insertSql = "INSERT INTO follow (followerUserId, followeeUserId) VALUES (?, ?)";
+                    try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+                        insertStmt.setInt(1, Integer.parseInt(followerId));
+                        insertStmt.setInt(2, Integer.parseInt(followeeId));
+                        insertStmt.executeUpdate();
+                        System.out.println("Successfully followed user with ID: " + followeeId);
+                    }
+                } else {
+
+                    String deleteSql = "DELETE FROM follow WHERE followerUserId = ? AND followeeUserId = ?";
+                    try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql)) {
+                        deleteStmt.setInt(1, Integer.parseInt(followerId));
+                        deleteStmt.setInt(2, Integer.parseInt(followeeId));
+                        deleteStmt.executeUpdate();
+                        System.out.println("Successfully unfollowed user with ID: " + followeeId);
+                    }
+                }
+            }
+        }
+    }
+
 }
