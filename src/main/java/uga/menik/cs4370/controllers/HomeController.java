@@ -12,6 +12,7 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -26,9 +27,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.ModelAndView;
 
 import uga.menik.cs4370.models.Post;
-import uga.menik.cs4370.utility.Utility;
 import uga.menik.cs4370.models.User;
 import uga.menik.cs4370.services.UserService;
+import uga.menik.cs4370.utility.Utility;
 
 /**
  * This controller handles the home page and some of it's sub URLs.
