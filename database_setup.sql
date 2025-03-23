@@ -21,7 +21,7 @@ create table if not exists user (
 CREATE TABLE IF NOT EXISTS post (
     postId int AUTO_INCREMENT,
     userId int NOT NULL,
-    postDate date NOT NULL,
+    postDate datetime NOT NULL,
     postText varchar(500) NOT NULL,
     PRIMARY KEY (postId),
     FOREIGN KEY (userId) REFERENCES user(userId)
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS comment (
     commentId int AUTO_INCREMENT,
     postId int NOT NULL,
     userId int NOT NULL,
-    commentDate date NOT NULL,
+    commentDate datetime NOT NULL,
     commentText varchar(255) NOT NULL,
     PRIMARY KEY (commentId),
     FOREIGN KEY (postId) REFERENCES post(postId)

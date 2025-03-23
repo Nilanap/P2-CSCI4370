@@ -8,10 +8,10 @@ package uga.menik.cs4370.controllers;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.HashSet;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -114,7 +114,7 @@ public class HomeController {
         try (final Connection connection = dataSource.getConnection()) {
             final PreparedStatement createPostStatement = connection.prepareStatement(createPostStatementString, Statement.RETURN_GENERATED_KEYS);
             createPostStatement.setString(1, user.getUserId());
-            createPostStatement.setDate(2, new Date(new java.util.Date().getTime()));
+            createPostStatement.setTimestamp(2, new Timestamp(new java.util.Date().getTime()));
             createPostStatement.setString(3, postText);
             createPostStatement.execute(); // Throws on error
 
