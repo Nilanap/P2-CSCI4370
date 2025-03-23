@@ -12,6 +12,7 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.HashSet;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -127,11 +128,14 @@ public class HomeController {
             final int postId = addedRows.getInt(1);
             final Matcher hashTagMatcher = hashTagPattern.matcher(postText);
             final PreparedStatement createHashtagStatement = connection.prepareStatement(createHashtagStatementString);
+            final HashSet<String> addedHashTags = new HashSet<>();
             createHashtagStatement.setInt(2, postId);
             while (hashTagMatcher.find()) {
                 final String hashTagName = hashTagMatcher.group(1);
-                createHashtagStatement.setString(1, hashTagName);
-                createHashtagStatement.executeUpdate();
+                if (addedHashTags.add(hashTagName)) {
+                    createHashtagStatement.setString(1, hashTagName);
+                    createHashtagStatement.executeUpdate();
+                }
             }
 
             // Redirect the user if the post creation is a success.
