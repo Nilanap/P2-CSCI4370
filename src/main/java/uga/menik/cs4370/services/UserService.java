@@ -30,11 +30,12 @@ import uga.menik.cs4370.models.User;
 @SessionScope
 public class UserService {
 
+
     // dataSource enables talking to the database.
     private final DataSource dataSource;
     // passwordEncoder is used for password security.
     private final BCryptPasswordEncoder passwordEncoder;
-    // This holds 
+    // This holds
     private User loggedInUser = null;
 
     /**
@@ -56,7 +57,7 @@ public class UserService {
         // Note the ? mark in the query. It is a place holder that we will later replace.
         final String sql = "select * from user where username = ?";
         try (Connection conn = dataSource.getConnection();
-                PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             // Following line replaces the first place holder with username.
             pstmt.setString(1, username);
@@ -118,7 +119,7 @@ public class UserService {
         final String registerSql = "insert into user (username, password, firstName, lastName) values (?, ?, ?, ?)";
 
         try (Connection conn = dataSource.getConnection();
-                PreparedStatement registerStmt = conn.prepareStatement(registerSql)) {
+             PreparedStatement registerStmt = conn.prepareStatement(registerSql)) {
             // Following lines replace the placeholders 1-4 with values.
             registerStmt.setString(1, username);
             registerStmt.setString(2, passwordEncoder.encode(password));
@@ -164,4 +165,37 @@ public class UserService {
         }
     }
 
+    public void toggleBookmark(String postId, String userId) throws SQLException {
+
+        String checkSql = "SELECT 1 FROM bookmark WHERE postId = ? AND userId = ?";
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement checkStmt = conn.prepareStatement(checkSql)) {
+            checkStmt.setString(1, postId);
+            checkStmt.setString(2, userId);
+
+            try (ResultSet rs = checkStmt.executeQuery()) {
+                if (!rs.next()) {
+
+                    String insertSql = "INSERT INTO bookmark (postId, userId) VALUES (?, ?)";
+                    try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+                        insertStmt.setString(1, postId);
+                        insertStmt.setString(2, userId);
+                        insertStmt.executeUpdate();
+                        System.out.println("Successfully added bookmark for post ID: " + postId);
+                    }
+                } else {
+
+                    String deleteSql = "DELETE FROM bookmark WHERE postId = ? AND userId = ?";
+                    try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql)) {
+                        deleteStmt.setString(1, postId);
+                        deleteStmt.setString(2, userId);
+                        deleteStmt.executeUpdate();
+                        System.out.println("Successfully removed bookmark for post ID: " + postId);
+                    }
+                }
+            }
+        }
+
+    }
 }

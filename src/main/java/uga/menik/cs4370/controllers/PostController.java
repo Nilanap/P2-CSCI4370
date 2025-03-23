@@ -9,6 +9,13 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import javax.sql.DataSource;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,8 +23,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.ModelAndView;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import uga.menik.cs4370.models.ExpandedPost;
+import uga.menik.cs4370.utility.Utility;
+import uga.menik.cs4370.models.Comment;
+import uga.menik.cs4370.models.Post;
+import uga.menik.cs4370.models.User;
+import uga.menik.cs4370.services.UserService;
 import uga.menik.cs4370.utility.Utility;
 
 /**
@@ -26,6 +39,12 @@ import uga.menik.cs4370.utility.Utility;
 @Controller
 @RequestMapping("/post")
 public class PostController {
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private DataSource dataSource;
 
     /**
      * This function handles the /post/{postId} URL.
@@ -39,26 +58,15 @@ public class PostController {
      */
     @GetMapping("/{postId}")
     public ModelAndView webpage(@PathVariable("postId") String postId,
-            @RequestParam(name = "error", required = false) String error) {
+                                @RequestParam(name = "error", required = false) String error) {
         System.out.println("The user is attempting to view post with id: " + postId);
-        // See notes on ModelAndView in BookmarksController.java.
         ModelAndView mv = new ModelAndView("posts_page");
 
-        // Following line populates sample data.
-        // You should replace it with actual data from the database.
-        List<ExpandedPost> posts = Utility.createSampleExpandedPostWithComments();
-        mv.addObject("posts", posts);
 
-        // If an error occured, you can set the following property with the
-        // error message to show the error message to the user.
-        // An error message can be optionally specified with a url query parameter too.
-        String errorMessage = error;
-        mv.addObject("errorMessage", errorMessage);
+        Post post = getPostById(postId);
+        mv.addObject("post", post);
 
-        // Enable the following line if you want to show no content message.
-        // Do that if your content list is empty.
-        // mv.addObject("isNoContent", true);
-
+        mv.addObject("errorMessage", error);
         return mv;
     }
 
@@ -114,18 +122,99 @@ public class PostController {
      */
     @GetMapping("/{postId}/bookmark/{isAdd}")
     public String addOrRemoveBookmark(@PathVariable("postId") String postId,
-            @PathVariable("isAdd") Boolean isAdd) {
+                                      @PathVariable("isAdd") Boolean isAdd) {
         System.out.println("The user is attempting add or remove a bookmark:");
         System.out.println("\tpostId: " + postId);
         System.out.println("\tisAdd: " + isAdd);
 
-        // Redirect the user if the comment adding is a success.
-        // return "redirect:/post/" + postId;
+        try (Connection conn = dataSource.getConnection()) {
+            String loggedInUserId = userService.getLoggedInUser().getUserId();
 
-        // Redirect the user with an error message if there was an error.
-        String message = URLEncoder.encode("Failed to (un)bookmark the post. Please try again.",
-                StandardCharsets.UTF_8);
-        return "redirect:/post/" + postId + "?error=" + message;
+            if (isAdd) {
+
+                String checkSql = "SELECT 1 FROM bookmark WHERE userId = ? AND postId = ?";
+                try (PreparedStatement checkStmt = conn.prepareStatement(checkSql)) {
+                    checkStmt.setInt(1, Integer.parseInt(loggedInUserId));
+                    checkStmt.setInt(2, Integer.parseInt(postId));
+
+                    try (ResultSet rs = checkStmt.executeQuery()) {
+                        if (!rs.next()) {
+
+                            String insertSql = "INSERT INTO bookmark (userId, postId) VALUES (?, ?)";
+                            try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+                                insertStmt.setInt(1, Integer.parseInt(loggedInUserId));
+                                insertStmt.setInt(2, Integer.parseInt(postId));
+                                insertStmt.executeUpdate();
+                                System.out.println("Successfully added bookmark for post with ID: " + postId);
+                            }
+                        } else {
+                            System.out.println("Bookmark already exists; skipping insert.");
+                        }
+                    }
+                }
+            } else {
+
+                String deleteSql = "DELETE FROM bookmark WHERE userId = ? AND postId = ?";
+                try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql)) {
+                    deleteStmt.setInt(1, Integer.parseInt(loggedInUserId));
+                    deleteStmt.setInt(2, Integer.parseInt(postId));
+                    deleteStmt.executeUpdate();
+                    System.out.println("Successfully removed bookmark for post with ID: " + postId);
+                }
+            }
+
+
+            return "redirect:/post/" + postId;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            String message = URLEncoder.encode("Failed to (un)bookmark the post. Please try again.", StandardCharsets.UTF_8);
+            return "redirect:/post/" + postId + "?error=" + message;
+        }
+    }
+
+    /**
+     * Get a single post by the id.
+     */
+    private Post getPostById(String postId) {
+        Post post = null;
+        String sql = "SELECT p.postId, p.postText, p.postDate, p.userId, " +
+                "u.firstName, u.lastName " +
+                "FROM post p " +
+                "JOIN user u ON p.userId = u.userId " +
+                "WHERE p.postId = ?";
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, Integer.parseInt(postId));
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    String postText = rs.getString("postText");
+                    String postDate = rs.getString("postDate");
+                    String authorId = rs.getString("userId");
+                    String firstName = rs.getString("firstName");
+                    String lastName = rs.getString("lastName");
+
+                    User author = new User(authorId, firstName, lastName);
+
+                    post = new Post(
+                            postId,
+                            postText,
+                            postDate,
+                            author,
+                            0,
+                            0,
+                            false,
+                            true
+                    );
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return post;
     }
 
 }
