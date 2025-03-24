@@ -7,15 +7,14 @@ package uga.menik.cs4370.controllers;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
-
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
+
 import javax.sql.DataSource;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,15 +22,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.ModelAndView;
-import org.springframework.beans.factory.annotation.Autowired;
 
-import uga.menik.cs4370.models.ExpandedPost;
-import uga.menik.cs4370.utility.Utility;
-import uga.menik.cs4370.models.Comment;
 import uga.menik.cs4370.models.Post;
 import uga.menik.cs4370.models.User;
 import uga.menik.cs4370.services.UserService;
-import uga.menik.cs4370.utility.Utility;
 
 /**
  * Handles /post URL and its sub urls.
@@ -178,14 +172,13 @@ public class PostController {
      */
     private Post getPostById(String postId) {
         Post post = null;
-        String sql = "SELECT p.postId, p.postText, p.postDate, p.userId, " +
-                "u.firstName, u.lastName " +
-                "FROM post p " +
-                "JOIN user u ON p.userId = u.userId " +
-                "WHERE p.postId = ?";
+        String sql = "SELECT p.postId, p.postText, p.postDate, p.userId, "
+                + "u.firstName, u.lastName "
+                + "FROM post p "
+                + "JOIN user u ON p.userId = u.userId "
+                + "WHERE p.postId = ?";
 
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, Integer.parseInt(postId));
 
             try (ResultSet rs = pstmt.executeQuery()) {

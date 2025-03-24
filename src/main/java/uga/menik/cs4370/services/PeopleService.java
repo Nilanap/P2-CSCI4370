@@ -11,13 +11,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+
 import javax.sql.DataSource;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import uga.menik.cs4370.models.FollowableUser;
-import uga.menik.cs4370.services.UserService;
 
 @Service
 public class PeopleService {
@@ -35,8 +35,7 @@ public class PeopleService {
     public boolean checkIfUserIsFollowed(String loggedInUserId, String targetUserId) {
         String checkSql = "SELECT 1 FROM follow WHERE followerUserId = ? AND followeeUserId = ?";
 
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement checkStmt = conn.prepareStatement(checkSql)) {
+        try (Connection conn = dataSource.getConnection(); PreparedStatement checkStmt = conn.prepareStatement(checkSql)) {
             checkStmt.setInt(1, Integer.parseInt(loggedInUserId));
             checkStmt.setInt(2, Integer.parseInt(targetUserId));
 
@@ -54,13 +53,11 @@ public class PeopleService {
     public List<FollowableUser> getFollowableUsers(String userIdToExclude) {
         List<FollowableUser> followableUsers = new ArrayList<>();
 
+        String sql = "SELECT u.userId, u.firstName, u.lastName "
+                + "FROM user u "
+                + "WHERE u.userId != ?";
 
-        String sql = "SELECT u.userId, u.firstName, u.lastName " +
-                "FROM user u " +
-                "WHERE u.userId != ?";
-
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, userIdToExclude);
 
             try (ResultSet rs = pstmt.executeQuery()) {

@@ -9,18 +9,16 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import javax.sql.DataSource;
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.sql.DataSource;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.servlet.ModelAndView;
-import org.springframework.web.bind.annotation.PathVariable;
-
-
 
 import uga.menik.cs4370.models.Post;
 import uga.menik.cs4370.models.User;
@@ -66,17 +64,15 @@ public class BookmarksController {
     private List<Post> getBookmarkedPosts() {
         List<Post> bookmarkedPosts = new ArrayList<>();
 
-        String sql = "SELECT p.postId, p.postText, p.postDate, p.userId, " +
-                "u.firstName, u.lastName " +
-                "FROM post p " +
-                "JOIN bookmark b ON p.postId = b.postId " +
-                "JOIN user u ON p.userId = u.userId " +
-                "WHERE b.userId = ? " +
-                "ORDER BY p.postDate DESC";
+        String sql = "SELECT p.postId, p.postText, p.postDate, p.userId, "
+                + "u.firstName, u.lastName "
+                + "FROM post p "
+                + "JOIN bookmark b ON p.postId = b.postId "
+                + "JOIN user u ON p.userId = u.userId "
+                + "WHERE b.userId = ? "
+                + "ORDER BY p.postDate DESC";
 
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
+        try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             String loggedInUserId = userService.getLoggedInUser().getUserId();
             pstmt.setInt(1, Integer.parseInt(loggedInUserId));

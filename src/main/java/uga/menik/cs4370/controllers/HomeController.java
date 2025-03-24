@@ -10,8 +10,10 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -30,7 +32,6 @@ import org.springframework.web.servlet.ModelAndView;
 import uga.menik.cs4370.models.Post;
 import uga.menik.cs4370.models.User;
 import uga.menik.cs4370.services.UserService;
-import uga.menik.cs4370.utility.Utility;
 
 /**
  * This controller handles the home page and some of it's sub URLs.
@@ -63,23 +64,68 @@ public class HomeController {
      */
     @GetMapping
     public ModelAndView webpage(@RequestParam(name = "error", required = false) String error) {
-        // See notes on ModelAndView in BookmarksController.java.
         ModelAndView mv = new ModelAndView("home_page");
 
-        // Following line populates sample data.
-        // You should replace it with actual data from the database.
-        List<Post> posts = Utility.createSamplePostsListWithoutComments();
+        // Get the logged-in user's ID
+        User loggedInUser = userService.getLoggedInUser();
+        if (loggedInUser == null) {
+            // Redirect to login if the user is not logged in
+            return new ModelAndView("redirect:/login");
+        }
+        String loggedInUserId = loggedInUser.getUserId();
+
+        // Fetch posts from users that the logged-in user follows
+        List<Post> posts = new ArrayList<>();
+        String sql = "SELECT p.postId, p.postText, p.postDate, p.userId, "
+                + "u.firstName, u.lastName "
+                + "FROM post p "
+                + "JOIN follow f ON p.userId = f.followeeUserId "
+                + "JOIN user u ON p.userId = u.userId "
+                + "WHERE f.followerUserId = ? "
+                + "ORDER BY p.postDate DESC";
+
+        try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, Integer.parseInt(loggedInUserId));
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    String postId = rs.getString("postId");
+                    String postText = rs.getString("postText");
+                    String postDate = rs.getString("postDate");
+                    String userId = rs.getString("userId");
+                    String firstName = rs.getString("firstName");
+                    String lastName = rs.getString("lastName");
+
+                    // Fetch user details
+                    User user = new User(userId, firstName, lastName);
+
+                    // Fetch additional post details (hearts, comments, etc.)
+                    int heartsCount = getHeartsCount(postId); // Implement this method
+                    int commentsCount = getCommentsCount(postId); // Implement this method
+                    boolean isHearted = isPostHeartedByUser(postId, loggedInUserId); // Implement this method
+                    boolean isBookmarked = isPostBookmarkedByUser(postId, loggedInUserId); // Implement this method
+
+                    // Create a Post object
+                    Post post = new Post(postId, postText, postDate, user, heartsCount, commentsCount, isHearted, isBookmarked);
+                    posts.add(post);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            String message = URLEncoder.encode("Failed to fetch posts. Please try again.", StandardCharsets.UTF_8);
+            return new ModelAndView("redirect:/?error=" + message);
+        }
+
+        // Add posts to the ModelAndView
         mv.addObject("posts", posts);
 
-        // If an error occured, you can set the following property with the
-        // error message to show the error message to the user.
-        // An error message can be optionally specified with a url query parameter too.
-        String errorMessage = error;
-        mv.addObject("errorMessage", errorMessage);
+        // Add error message if any
+        mv.addObject("errorMessage", error);
 
-        // Enable the following line if you want to show no content message.
-        // Do that if your content list is empty.
-        // mv.addObject("isNoContent", true);
+        // Show "no content" message if there are no posts
+        if (posts.isEmpty()) {
+            mv.addObject("isNoContent", true);
+        }
 
         return mv;
     }
@@ -151,4 +197,51 @@ public class HomeController {
         return "redirect:/?error=" + message;
     }
 
+    private int getHeartsCount(String postId) throws SQLException {
+        String sql = "SELECT COUNT(*) AS heartsCount FROM heart WHERE postId = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, postId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("heartsCount");
+                }
+            }
+        }
+        return 0;
+    }
+
+    private int getCommentsCount(String postId) throws SQLException {
+        String sql = "SELECT COUNT(*) AS commentsCount FROM comment WHERE postId = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, postId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("commentsCount");
+                }
+            }
+        }
+        return 0;
+    }
+
+    private boolean isPostHeartedByUser(String postId, String userId) throws SQLException {
+        String sql = "SELECT 1 FROM heart WHERE postId = ? AND userId = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, postId);
+            pstmt.setString(2, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    private boolean isPostBookmarkedByUser(String postId, String userId) throws SQLException {
+        String sql = "SELECT 1 FROM bookmark WHERE postId = ? AND userId = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, postId);
+            pstmt.setString(2, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
 }
