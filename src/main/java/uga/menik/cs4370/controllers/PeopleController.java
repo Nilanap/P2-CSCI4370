@@ -7,9 +7,8 @@ package uga.menik.cs4370.controllers;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
 import java.util.List;
-
-import javax.sql.DataSource;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -32,16 +31,14 @@ public class PeopleController {
 
     private final UserService userService;
     private final PeopleService peopleService;
-    private final DataSource dataSource;
 
     // Inject UserService and PeopleService instances.
     // See LoginController.java to see how to do this.
     // Hint: Add a constructor with @Autowired annotation.
     @Autowired
-    public PeopleController(UserService userService, PeopleService peopleService, DataSource dataSource) {
+    public PeopleController(UserService userService, PeopleService peopleService) {
         this.userService = userService;
         this.peopleService = peopleService;
-        this.dataSource = dataSource;
     }
 
     /**
@@ -55,17 +52,11 @@ public class PeopleController {
     public ModelAndView webpage(@RequestParam(name = "error", required = false) String error) {
         ModelAndView mv = new ModelAndView("people_page");
 
-
         String loggedInUserId = userService.getLoggedInUser() != null ? userService.getLoggedInUser().getUserId() : "-1";
-
-
         List<FollowableUser> followableUsers = peopleService.getFollowableUsers(loggedInUserId);
+
         mv.addObject("users", followableUsers);
-
-
         mv.addObject("errorMessage", error);
-
-
         if (followableUsers.isEmpty()) {
             mv.addObject("isNoContent", true);
         }
@@ -90,16 +81,11 @@ public class PeopleController {
         System.out.println("\tisFollow: " + isFollow);
 
         try {
-
             String loggedInUserId = userService.getLoggedInUser().getUserId();
             System.out.println("\tLogged-in userId: " + loggedInUserId);
-
-
             userService.toggleFollowUser(loggedInUserId, userId);
-
-
             return "redirect:/people";
-        } catch (Exception e) {
+        } catch (SQLException e) {
             e.printStackTrace();
 
             String message = URLEncoder.encode("Failed to (un)follow the user. Please try again.", StandardCharsets.UTF_8);

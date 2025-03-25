@@ -91,7 +91,7 @@ public class HomeController {
                 while (rs.next()) {
                     String postId = rs.getString("postId");
                     String postText = rs.getString("postText");
-                    String postDate = rs.getString("postDate");
+                    String postDate = formatDateTime(rs.getTimestamp("postDate"));
                     String userId = rs.getString("userId");
                     String firstName = rs.getString("firstName");
                     String lastName = rs.getString("lastName");
@@ -128,6 +128,11 @@ public class HomeController {
         }
 
         return mv;
+    }
+
+    private String formatDateTime(java.sql.Timestamp timestamp) {
+        if (timestamp == null) return "N/A";
+        return timestamp.toLocalDateTime().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy, hh:mm a"));
     }
 
     /**

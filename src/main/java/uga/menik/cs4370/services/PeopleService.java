@@ -18,19 +18,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import uga.menik.cs4370.models.FollowableUser;
+import uga.menik.cs4370.models.User;
 
 @Service
 public class PeopleService {
     private final DataSource dataSource;
-    private final UserService userService;
 
     @Autowired
-    public PeopleService(DataSource dataSource, UserService userService) {
+    public PeopleService(DataSource dataSource) {
         this.dataSource = dataSource;
-        this.userService = userService;
     }
-
-
 
     public boolean checkIfUserIsFollowed(String loggedInUserId, String targetUserId) {
         String checkSql = "SELECT 1 FROM follow WHERE followerUserId = ? AND followeeUserId = ?";
@@ -81,5 +78,27 @@ public class PeopleService {
         return followableUsers;
     }
 
+    public User getUserById(String userId) {
+        final String queryString = "SELECT firstName, lastName FROM user WHERE userId = ?";
+
+        try (Connection connection = dataSource.getConnection()) {
+            PreparedStatement query = connection.prepareStatement(queryString);
+            query.setString(1, userId);
+            ResultSet results = query.executeQuery();
+            if (results.next()) {
+                User user = new User(
+                    userId,
+                    results.getString("firstName"),
+                    results.getString("lastName")
+                );
+                return user;
+            }
+
+        } catch (SQLException sqle) {
+            sqle.printStackTrace();
+        }
+
+        return null;
+    }
 
 }

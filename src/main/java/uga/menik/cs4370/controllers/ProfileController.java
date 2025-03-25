@@ -9,9 +9,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 
 import javax.sql.DataSource;
@@ -25,6 +23,8 @@ import org.springframework.web.servlet.ModelAndView;
 
 import uga.menik.cs4370.models.Post;
 import uga.menik.cs4370.models.User;
+import uga.menik.cs4370.services.PeopleService;
+import uga.menik.cs4370.services.PostService;
 import uga.menik.cs4370.services.UserService;
 
 /**
@@ -34,13 +34,17 @@ import uga.menik.cs4370.services.UserService;
 @RequestMapping("/profile")
 public class ProfileController {
 
-    private final UserService userService;
     private final DataSource dataSource;
+    private final PeopleService peopleService;
+    private final PostService postService;
+    private final UserService userService;
 
     @Autowired
-    public ProfileController(UserService userService, DataSource dataSource) {
+    public ProfileController(UserService userService, DataSource dataSource, PeopleService peopleService, PostService postService) {
         this.userService = userService;
         this.dataSource = dataSource;
+        this.peopleService = peopleService;
+        this.postService = postService;
     }
 
     /**
@@ -64,84 +68,24 @@ public class ProfileController {
     @GetMapping("/{userId}")
     public ModelAndView profileOfSpecificUser(@PathVariable("userId") String userId) {
         System.out.println("User is attempting to view profile: " + userId);
-        
         ModelAndView mv = new ModelAndView("posts_page");
 
         // Fetch posts for the specific user
-        List<Post> posts = getPostsByUserId(userId);
+        List<Post> posts = postService.getPostsByUser(userId);
         mv.addObject("posts", posts);
 
-        // Show "no content" message if there are no posts
+        // Add user details to display on the profile page (optional)
+        User profileUser = peopleService.getUserById(userId);
+        if (profileUser != null) {
+            mv.addObject("profileUser", profileUser);
+        } else {
+            mv.addObject("errorMessage", "User not found.");
+        }
+
         if (posts.isEmpty()) {
             mv.addObject("isNoContent", true);
         }
-        
         return mv;
-    }
-
-    private List<Post> getPostsByUserId(String userId) {
-        List<Post> posts = new ArrayList<>();
-        String sql = "SELECT p.postId, p.postText, p.postDate, p.userId, " +
-                    "u.firstName, u.lastName, " +
-                    "EXISTS(SELECT 1 FROM heart h WHERE h.postId = p.postId AND h.userId = ?) as isHearted, " +
-                    "EXISTS(SELECT 1 FROM bookmark b WHERE b.postId = p.postId AND b.userId = ?) as isBookmarked, " +
-                    "(SELECT COUNT(*) FROM heart h WHERE h.postId = p.postId) as heartsCount, " +
-                    "(SELECT COUNT(*) FROM comment c WHERE c.postId = p.postId) as commentsCount " +
-                    "FROM post p JOIN user u ON p.userId = u.userId " +
-                    "ORDER BY p.postDate DESC";
-    
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, Integer.parseInt(userId));
-            pstmt.setInt(2, Integer.parseInt(userId));
-            
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    String postId = rs.getString("postId");
-                    String postText = rs.getString("postText");
-                    String postDate = formatDateTime(rs.getTimestamp("postDate"));
-                    String authorId = rs.getString("userId");
-                    String firstName = rs.getString("firstName");
-                    String lastName = rs.getString("lastName");
-                    boolean isHearted = rs.getBoolean("isHearted");
-                    boolean isBookmarked = rs.getBoolean("isBookmarked");
-                    int heartsCount = rs.getInt("heartsCount");
-                    int commentsCount = rs.getInt("commentsCount");
-    
-                    User author = new User(authorId, firstName, lastName);
-                    Post post = new Post(postId, postText, postDate, author, 
-                                        heartsCount, commentsCount, isHearted, isBookmarked);
-                    posts.add(post);
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return posts;
-    }
-    /**
-     * Formats a Timestamp into a human-readable date and time string.
-     */
-    private String formatDateTime(java.sql.Timestamp timestamp) {
-        if (timestamp == null) {
-            return "N/A";
-        }
-        return timestamp.toLocalDateTime().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy, hh:mm a"));
-    }
-
-    /**
-     * Checks if a post is bookmarked by the logged-in user.
-     */
-    private boolean isPostBookmarkedByUser(String postId, String userId) throws SQLException {
-        String sql = "SELECT 1 FROM bookmark WHERE postId = ? AND userId = ?";
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, postId);
-            pstmt.setString(2, userId);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                return rs.next();
-            }
-        }
     }
 
     /**
@@ -190,5 +134,4 @@ public class ProfileController {
             pstmt.executeUpdate();
         }
     }
-
 }
