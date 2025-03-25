@@ -22,6 +22,7 @@ import uga.menik.cs4370.models.Comment;
 import uga.menik.cs4370.models.ExpandedPost;
 import uga.menik.cs4370.models.Post;
 import uga.menik.cs4370.models.User;
+import uga.menik.cs4370.utility.Utility;
 
 @Service
 public class PostService {
@@ -85,7 +86,7 @@ public class PostService {
                 Post post = new Post(
                         results.getString("postId"),
                         results.getString("content"),
-                        results.getString("postDate"),
+                        Utility.formatDateTime(results.getTimestamp("postDate")),
                         user,
                         results.getInt("heartsCount"),
                         results.getInt("commentsCount"),
@@ -117,7 +118,7 @@ public class PostService {
                     Comment comment = new Comment(
                             results.getString("commentId"),
                             results.getString("commentText"),
-                            results.getString("commentDate"),
+                            Utility.formatDateTime(results.getTimestamp("commentDate")),
                             peopleService.getUserById(results.getString("userId"))
                     );
 

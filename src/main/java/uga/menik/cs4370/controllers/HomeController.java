@@ -32,6 +32,7 @@ import org.springframework.web.servlet.ModelAndView;
 import uga.menik.cs4370.models.Post;
 import uga.menik.cs4370.models.User;
 import uga.menik.cs4370.services.UserService;
+import uga.menik.cs4370.utility.Utility;
 
 /**
  * This controller handles the home page and some of it's sub URLs.
@@ -91,7 +92,7 @@ public class HomeController {
                 while (rs.next()) {
                     String postId = rs.getString("postId");
                     String postText = rs.getString("postText");
-                    String postDate = formatDateTime(rs.getTimestamp("postDate"));
+                    String postDate = Utility.formatDateTime(rs.getTimestamp("postDate"));
                     String userId = rs.getString("userId");
                     String firstName = rs.getString("firstName");
                     String lastName = rs.getString("lastName");
@@ -128,11 +129,6 @@ public class HomeController {
         }
 
         return mv;
-    }
-
-    private String formatDateTime(java.sql.Timestamp timestamp) {
-        if (timestamp == null) return "N/A";
-        return timestamp.toLocalDateTime().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy, hh:mm a"));
     }
 
     /**

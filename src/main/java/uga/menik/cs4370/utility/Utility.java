@@ -60,4 +60,9 @@ public class Utility {
         return List.of(postWithComments);
     }
 
+    public static String formatDateTime(java.sql.Timestamp timestamp) {
+        if (timestamp == null) return "N/A";
+        return timestamp.toLocalDateTime().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy, hh:mm a"));
+    }
+
 }
